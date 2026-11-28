@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Burger: O Bug do Sistema - Nível 1</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <style>
+    :root {
+      --bg-principal: #181A1F;
+      --bg-card: #22252C;
+      --verde-sql: #4ADE80;
+      --amarelo-burger: #F59E0B;
+      --vermelho-bug: #EF4444;
+      --texto-principal: #F9FAFB;
+      --texto-secundario: #9CA3AF;
+      --borda-sutil: #374151;
+    }
+
+    body {
+      background-color: var(--bg-principal);
+      color: var(--texto-principal);
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--borda-sutil);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .status {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+    }
+
+    #nivel-atual { color: var(--amarelo-burger); }
+    #tentativas-restantes { color: var(--vermelho-bug); }
+
+    textarea#sql-input {
+      width: 100%;
+      box-sizing: border-box;
+      background-color: #111317;
+      color: var(--verde-sql);
+      border: 1px solid var(--borda-sutil);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: Consolas, monospace;
+      font-size: 1rem;
+      resize: vertical;
+    }
+
+    textarea#sql-input:focus {
+      outline: none;
+      border-color: var(--verde-sql);
+    }
+
+    .botoes {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    button {
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #btn-executar { background-color: var(--verde-sql); color: #111317; }
+    #btn-dica { background-color: transparent; border: 1px solid var(--amarelo-burger); color: var(--amarelo-burger); }
+    #btn-proximo { background-color: var(--amarelo-burger); color: #111317; display: none; }
+
+    #area-dica {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #2b2619;
+      border-left: 4px solid var(--amarelo-burger);
+      color: #FDE68A;
+    }
+
+    #mensagem-feedback {
+      margin-top: 0.75rem;
+      font-weight: bold;
+    }
+    .sucesso { color: var(--verde-sql); }
+    .erro { color: var(--vermelho-bug); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      border: 1px solid var(--borda-sutil);
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th { background-color: #111317; color: var(--verde-sql); }
+    .esquema { font-size: 0.9rem; color: var(--texto-secundario); }
+  </style>
+</head>
+<body>
+
+  <h1>🍔 SQL Burger: O Bug do Sistema</h1>
+
+  <div class="card esquema">
+    <strong>Tabelas disponíveis:</strong><br />
+    • <code>restaurantes</code> (id_restaurante, restaurante, categoria)<br />
+    • <code>pedidos_novo</code> (id_pedido, id_restaurante, cliente, valor)
+  </div>
+
+  <div class="card">
+    <div class="status">
+      <span id="nivel-atual">Nível 1 — O Auxiliar de Cozinha (1/4)</span>
+      <span id="tentativas-restantes">Tentativas: 3</span>
+    </div>
+
+    <h2 id="titulo-desafio">Carregando...</h2>
+    <p id="enunciado-desafio"></p>
+
+    <textarea id="sql-input" rows="4" placeholder="Digite seu comando SQL aqui..."></textarea>
+
+    <div class="botoes">
+      <button id="btn-executar">Executar SQL</button>
+      <button id="btn-dica">Ver Dica</button>
+      <button id="btn-proximo">Próximo Desafio ➔</button>
+    </div>
+
+    <div id="area-dica"></div>
+    <div id="mensagem-feedback"></div>
+    <div id="resultado-tabela"></div>
+  </div>
+
+  <script>
+    const bancoInicial = `
+      CREATE TABLE restaurantes (id_restaurante INTEGER PRIMARY KEY, restaurante TEXT, categoria TEXT);
+      CREATE TABLE pedidos_novo (id_pedido INTEGER PRIMARY KEY, id_restaurante INTEGER, cliente TEXT, valor INTEGER);
+
+      INSERT INTO restaurantes VALUES
+      (1, 'SQL Burger Matriz', 'Lanches'),
+      (2, 'Byte Pizza', 'Pizzaria'),
+      (3, 'Query Sushi', 'Japonesa'),
+      (4, 'Chapa Quente Express', 'Lanches'),
+      (5, 'Massa & Código', 'Italiana'),
+      (6, 'Taco Loco', 'Mexicana');
+
+      INSERT INTO pedidos_novo VALUES
+      (101, 1, 'Ana Clara', 45), (102, 1, 'Bruno Silva', 60),
+      (103, 2, 'Carla Dias', 85), (104, 3, 'Diego Alves', 120),
+      (105, 1, 'Ana Clara', 35), (106, 4, 'Fernanda Lima', 28),
+      (107, 2, 'Gabriel Costa', 95), (108, 3, 'Helena Souza', 150),
+      (109, 5, 'Igor Martins', 70), (110, 1, 'Julia Rocha', 55),
+      (111, 4, 'Bruno Silva', 32), (112, 2, 'Lucas Mendes', 110),
+      (113, 3, 'Carla Dias', 140), (114, 5, 'Mariana Nunes', 65),
+      (115, 1, 'Pedro Henrique', 50);
+    `;
+
+    const desafiosNivel1 = [
+      {
+        titulo: "1. Catálogo de Parceiros (SELECT)",
+        enunciado: "Recupere apenas o nome (restaurante) e a categoria de todos os restaurantes cadastrados.",
+        queryEsperada: "SELECT restaurante, categoria FROM restaurantes;",
+        dica: "Use SELECT restaurante, categoria FROM restaurantes;"
+      },
+      {
+        titulo: "2. Pedidos de Alto Valor (WHERE)",
+        enunciado: "Liste todas as colunas da tabela pedidos_novo onde o valor seja maior que 100.",
+        queryEsperada: "SELECT * FROM pedidos_novo WHERE valor > 100;",
+        dica: "Use SELECT * FROM pedidos_novo WHERE valor > 100;"
+      },
+      {
+        titulo: "3. Ranking de Vendas (ORDER BY)",
+        enunciado: "Exiba o cliente e o valor de todos os pedidos em pedidos_novo, ordenados do maior valor para o menor.",
+        queryEsperada: "SELECT cliente, valor FROM pedidos_novo ORDER BY valor DESC;",
+        dica: "Use ORDER BY valor DESC ao final da consulta."
+      },
+      {
+        titulo: "4. Pódio da Noite (LIMIT)",
+        enunciado: "Exiba apenas o cliente e o valor dos 3 pedidos mais caros da tabela pedidos_novo.",
+        queryEsperada: "SELECT cliente, valor FROM pedidos_novo ORDER BY valor DESC LIMIT 3;",
+        dica: "Combine ORDER BY valor DESC com LIMIT 3."
+      }
+    ];
+
+    let db;
+    let indiceAtual = 0;
+    let tentativas = 3;
+
+    async function iniciar() {
+      const SQL = await initSqlJs({
+        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+      });
+      db = new SQL.Database();
+      db.run(bancoInicial);
+      carregarDesafio();
+    }
+
+    function carregarDesafio() {
+      const d = desafiosNivel1[indiceAtual];
+      tentativas = 3;
+      document.getElementById("nivel-atual").textContent = `Nível 1 — O Auxiliar de Cozinha (${indiceAtual + 1}/${desafiosNivel1.length})`;
+      document.getElementById("tentativas-restantes").textContent = `Tentativas: ${tentativas}`;
+      document.getElementById("titulo-desafio").textContent = d.titulo;
+      document.getElementById("enunciado-desafio").textContent = d.enunciado;
+      document.getElementById("sql-input").value = "";
+      document.getElementById("area-dica").style.display = "none";
+      document.getElementById("area-dica").textContent = `💡 Dica: ${d.dica}`;
+      document.getElementById("mensagem-feedback").textContent = "";
+      document.getElementById("resultado-tabela").innerHTML = "";
+      document.getElementById("btn-proximo").style.display = "none";
+    }
+
+    function renderizarTabela(resultado) {
+      const container = document.getElementById("resultado-tabela");
+      if (!resultado || resultado.length === 0) {
+        container.innerHTML = "<p>Consulta executada (0 linhas retornadas).</p>";
+        return;
+      }
+      const { columns, values } = resultado[0];
+      let html = "<table><thead><tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+      html += values.map(row => "<tr>" + row.map(v => `<td>${v}</td>`).join("") + "</tr>").join("");
+      html += "</tbody></table>";
+      container.innerHTML = html;
+    }
+
+    document.getElementById("btn-executar").addEventListener("click", () => {
+      const queryUsuario = document.getElementById("sql-input").value.trim();
+      const feedback = document.getElementById("mensagem-feedback");
+      const d = desafiosNivel1[indiceAtual];
+
+      if (!queryUsuario) return;
+
+      try {
+        const resUsuario = db.exec(queryUsuario);
+        const resEsperado = db.exec(d.queryEsperada);
+        renderizarTabela(resUsuario);
+
+        if (JSON.stringify(resUsuario) === JSON.stringify(resEsperado)) {
+          feedback.className = "sucesso";
+          feedback.textContent = "✅ Consulta correta! Dados recuperados com sucesso.";
+          document.getElementById("btn-proximo").style.display = "inline-block";
+        } else {
+          tratarErro("Resultado diferente do esperado. Verifique as colunas, filtros ou ordenação.");
+        }
+      } catch (err) {
+        document.getElementById("resultado-tabela").innerHTML = "";
+        tratarErro(`Erro de sintaxe SQL: ${err.message}`);
+      }
+    });
+
+    function tratarErro(msg) {
+      const feedback = document.getElementById("mensagem-feedback");
+      tentativas--;
+      document.getElementById("area-dica").style.display = "block";
+
+      if (tentativas <= 0) {
+        tentativas = 3;
+        feedback.className = "erro";
+        feedback.textContent = "❌ Tentativas esgotadas! O desafio foi reiniciado (3 tentativas). Use a dica acima.";
+      } else {
+        feedback.className = "erro";
+        feedback.textContent = `❌ ${msg}`;
+      }
+      document.getElementById("tentativas-restantes").textContent = `Tentativas: ${tentativas}`;
+    }
+
+    document.getElementById("btn-dica").addEventListener("click", () => {
+      document.getElementById("area-dica").style.display = "block";
+    });
+
+    document.getElementById("btn-proximo").addEventListener("click", () => {
+      indiceAtual++;
+      if (indiceAtual < desafiosNivel1.length) {
+        carregarDesafio();
+      } else {
+        document.getElementById("titulo-desafio").textContent = "🎉 Nível 1 Concluído!";
+        document.getElementById("enunciado-desafio").textContent = "Você dominou SELECT, WHERE, ORDER BY e LIMIT. O Nível 2 está desbloqueado!";
+        document.getElementById("btn-proximo").style.display = "none";
+      }
+    });
+
+    iniciar();
+  </script>
+</body>
+</html>
