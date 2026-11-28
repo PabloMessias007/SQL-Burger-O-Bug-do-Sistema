@@ -1,6 +1,6 @@
 # 🍔 SQL Burger: O Bug do Sistema
 
-**Jogue online:** [Inserir link do GitHub Pages aqui]
+**Jogue online:** https://pablomessias007.github.io/SQL-Burger-O-Bug-do-Sistema/
 
 ## 📖 Sobre o Jogo
 O sistema de gestão da rede de delivery **SQL Burger** sofreu uma falha crítica e os relatórios financeiros e operacionais da noite ficaram inacessíveis. No papel de Analista de Dados, o jogador precisa escrever e executar comandos SQL reais para recuperar informações, auditar faturamentos e normalizar a operação antes do fechamento do caixa.
